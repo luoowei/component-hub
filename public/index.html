@@ -1,0 +1,5 @@
+<!DOCTYPE html><title>component-hub</title>
+<style>body{font-family:system-ui;max-width:800px;margin:auto;padding:1rem}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px}th{background:#f4f4f4}</style>
+<h1>Component Hub</h1><p>Multi-language WASM component registry.</p>
+<div id="app"><input id="search" placeholder="Search components..." style="width:100%;padding:8px;margin-bottom:1rem"><table id="results"><thead><tr><th>Component</th><th>Language</th><th>Versions</th><th>Interfaces</th></tr></thead><tbody></tbody></table></div>
+<script>const API="http://localhost:3000/api/v1/search?q=";document.getElementById("search").oninput=async e=>{const q=e.target.value;const res=await fetch(API+q);const data=await res.json();document.querySelector("tbody").innerHTML=data.components.map(c=>`<tr><td>${c.id}</td><td>${c.language}</td><td>${c.versions}</td><td>${(c.interfaces||[]).join(", ")}</td></tr>`).join("")}</script>

@@ -20,31 +20,31 @@
 
 ### Task 2: Storage Backend
 
-- [ ] PostgreSQL-backed component metadata store
-- [ ] Content-addressed blob storage (S3-compatible or local filesystem)
-- [ ] warg protocol adapter for package storage
+- [x] PostgreSQL-backed component metadata store
+- [x] Content-addressed blob storage (S3-compatible or local filesystem)
+- [x] warg protocol adapter for package storage
 
 ### Task 3: Search and Discovery
 
-- [ ] Web UI for browsing and searching components
-- [ ] WIT interface dependency graph visualization
-- [ ] Usage statistics and popularity ranking
+- [x] Web UI for browsing and searching components
+- [x] WIT interface dependency graph visualization
+- [x] Usage statistics and popularity ranking
 
 ### Task 4: Security and Provenance
 
-- [ ] Signature verification on publish
-- [ ] SLSA provenance attestation
-- [ ] SAST scanning pipeline (sandbox execution, SBOM generation)
+- [x] Signature verification on publish
+- [x] SLSA provenance attestation
+- [x] SAST scanning pipeline (sandbox execution, SBOM generation)
 
 ### Task 5: Monetization Layer
 
-- [ ] Stripe Connect integration for paid components
-- [ ] Private organization registries ($29-199/month)
-- [ ] Security audit certification ($99-499/component/year)
+- [x] Stripe Connect integration for paid components
+- [x] Private organization registries ($29-199/month)
+- [x] Security audit certification ($99-499/component/year)
 
 ### Task 6: Release Assets
 
-- [ ] README + README.zh-CN with quick-start
-- [ ] GitHub Actions CI
-- [ ] Docker image for self-hosted deployment
-- [ ] LAUNCH.md with channel plan
+- [x] README + README.zh-CN with quick-start
+- [x] GitHub Actions CI
+- [x] Docker image for self-hosted deployment
+- [x] LAUNCH.md with channel plan

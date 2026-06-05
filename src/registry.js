@@ -92,6 +92,8 @@ export class ComponentRegistry {
     }
     return results;
   }
+
+  getVersions(namespace, name) {
     const id = `${namespace}/${name}`;
     return this.components.get(id) || [];
   }
