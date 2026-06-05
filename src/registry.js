@@ -4,8 +4,8 @@
 export class ComponentRegistry {
   constructor() {
     this.components = new Map(); // namespace/name -> versions[]
-    this.interfaces = new Map(); // WIT interface name -> component refs
-    // Inverted index for sub-linear text search
+    this.interfaces = new Map(); // WIT interface name -> component refs (implemented)
+    this.dependencies = new Map(); // name/name -> Set<dependent namespace/name>
     this._termIndex = new Map(); // term -> Set<id>
   }
 
@@ -27,16 +27,21 @@ export class ComponentRegistry {
     }
   }
 
-  publish(namespace, name, version, { witInterfaces = [], language = "unknown", checksum = null } = {}) {
+  publish(namespace, name, version, { witInterfaces = [], witDependencies = [], language = "unknown", checksum = null } = {}) {
     const id = `${namespace}/${name}`;
     if (!this.components.has(id)) this.components.set(id, []);
     const versions = this.components.get(id);
     if (versions.find(v => v.version === version)) throw new Error(`Version ${version} already exists for ${id}`);
-    const entry = { namespace, name, version, language, checksum, witInterfaces, publishedAt: new Date().toISOString() };
+    const entry = { namespace, name, version, language, checksum, witInterfaces, witDependencies, publishedAt: new Date().toISOString() };
     versions.push(entry);
     for (const iface of witInterfaces) {
       if (!this.interfaces.has(iface)) this.interfaces.set(iface, []);
       this.interfaces.get(iface).push(id);
+    }
+    // Track reverse dependencies
+    for (const dep of witDependencies) {
+      if (!this.dependencies.has(dep)) this.dependencies.set(dep, new Set());
+      this.dependencies.get(dep).add(id);
     }
     this._indexComponent(id, entry);
     return entry;
@@ -93,9 +98,41 @@ export class ComponentRegistry {
     return results;
   }
 
+  /**
+   * Get versions sorted by semver (descending) or insertion order if comparisons fail.
+   */
   getVersions(namespace, name) {
     const id = `${namespace}/${name}`;
-    return this.components.get(id) || [];
+    const versions = this.components.get(id) || [];
+    return [...versions].sort((a, b) => {
+      const cmp = semverCompare(a.version, b.version);
+      return cmp !== 0 ? -cmp : 0; // descending
+    });
+  }
+
+  /**
+   * Return the latest stable version (non-prerelease), or the latest version if all are prereleases.
+   */
+  latestStable(namespace, name) {
+    const versions = this.getVersions(namespace, name);
+    const stable = versions.filter(v => !isPrerelease(v.version));
+    return stable.length > 0 ? stable[0] : (versions.length > 0 ? versions[0] : null);
+  }
+
+  /**
+   * Get components that depend on this namespace/name.
+   */
+  getDependents(namespace, name) {
+    const id = `${namespace}/${name}`;
+    return [...(this.dependencies.get(id) || [])];
+  }
+
+  /**
+   * Get the WIT dependencies of the latest version of a component.
+   */
+  getDependencies(namespace, name) {
+    const versions = this.getVersions(namespace, name);
+    return versions.length > 0 ? (versions[0].witDependencies || []) : [];
   }
 
   getInterfaceUsage(_interface) {
@@ -106,6 +143,69 @@ export class ComponentRegistry {
     let componentCount = this.components.size;
     let versionCount = 0;
     for (const [, versions] of this.components) versionCount += versions.length;
-    return { components: componentCount, versions: versionCount, interfaces: this.interfaces.size };
+    const depCount = [...this.dependencies.values()].reduce((s, set) => s + set.size, 0);
+    return { components: componentCount, versions: versionCount, interfaces: this.interfaces.size, dependencies: depCount };
   }
+}
+
+// ---------------------------------------------------------------------------
+// Semver helpers (zero-dependency, subset of semver.org spec)
+// ---------------------------------------------------------------------------
+
+const SEMVER_RE = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+([0-9A-Za-z.-]+))?$/;
+
+function semverCompare(a, b) {
+  const pa = parseSemver(a);
+  const pb = parseSemver(b);
+  if (!pa && !pb) return a.localeCompare(b);
+  if (!pa) return -1;
+  if (!pb) return 1;
+
+  // Compare major.minor.patch
+  if (pa.major !== pb.major) return pa.major - pb.major;
+  if (pa.minor !== pb.minor) return pa.minor - pb.minor;
+  if (pa.patch !== pb.patch) return pa.patch - pb.patch;
+
+  // Pre-release: a version with pre-release is LOWER than one without
+  if (pa.prerelease && !pb.prerelease) return -1;
+  if (!pa.prerelease && pb.prerelease) return 1;
+  if (pa.prerelease && pb.prerelease) {
+    return comparePrerelease(pa.prerelease, pb.prerelease);
+  }
+
+  return 0;
+}
+
+function parseSemver(v) {
+  const m = v.match(SEMVER_RE);
+  if (!m) return null;
+  return {
+    major: parseInt(m[1], 10),
+    minor: parseInt(m[2], 10),
+    patch: parseInt(m[3], 10),
+    prerelease: m[4] ? m[4].split(".") : null,
+  };
+}
+
+function comparePrerelease(a, b) {
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const ai = a[i];
+    const bi = b[i];
+    if (ai === undefined) return -1; // shorter = smaller
+    if (bi === undefined) return 1;
+    const aiNum = parseInt(ai, 10);
+    const biNum = parseInt(bi, 10);
+    if (!isNaN(aiNum) && !isNaN(biNum)) {
+      if (aiNum !== biNum) return aiNum - biNum;
+    } else {
+      const cmp = ai.localeCompare(bi);
+      if (cmp !== 0) return cmp;
+    }
+  }
+  return 0;
+}
+
+function isPrerelease(v) {
+  const m = v.match(SEMVER_RE);
+  return m ? !!m[4] : false;
 }
